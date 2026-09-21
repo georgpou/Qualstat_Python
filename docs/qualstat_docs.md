@@ -1,6 +1,7 @@
 # Python QualStat
 
-This is a small Python replacement for the supplied QualStat Fortran program. It preserves QualStat's legacy metric definitions and parametric bootstrap, accepts CSV/YAML input, adds Spearman's rho, and can calculate RBFE cycle-closure errors.
+This is a small Python replacement for the a QualStat Fortran program created by Ulf Ryde's group https://signe.teokem.lu.se/ulf/Methods/qual-stat.html. 
+It preserves QualStat's legacy metric definitions and parametric bootstrap, accepts CSV/YAML input, adds Spearman's rho, and can calculate RBFE cycle-closure errors.
 
 ## Installation
 
