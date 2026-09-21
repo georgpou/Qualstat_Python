@@ -1,4 +1,5 @@
-# RBFE example: all paths are relative to this YAML file.
+# RBFE example: all paths are relative to this YAML file. The uncertainty
+# columns contain one-sigma uncertainties of the reported edge means.
 input_file: data.csv
 output_file: expected.log
 analysis_type: rbfe
@@ -7,17 +8,12 @@ bootstrap_rounds: 1000
 random_seed: 2026
 significance_multiplier: 1.645
 
-# Common error, agreement, correlation, and regression metrics.
+# Preferred orientation-independent RBFE metrics used by this project.
 statistics:
   MAD: true
   RMSD: true
-  MSD: true
-  r2: true
-  R: true
-  rho: true
-  tau: true
-  slope: true
-  inter: true
+  taurx: true
+  r22: true
 
 # Report all unique simple cycles.
 cycle_analysis: true

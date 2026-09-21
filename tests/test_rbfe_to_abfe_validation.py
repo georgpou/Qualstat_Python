@@ -110,6 +110,26 @@ class RbfeToAbfeValidationTests(unittest.TestCase):
         network.loc[0, "ligand_B"] = "A"
         self.assert_inputs_rejected(network, self.valid_experimental(), "Self-transformations are not allowed")
 
+    def test_missing_or_blank_ligand_names_are_rejected(self):
+        for bad_name in ("", "   ", None):
+            with self.subTest(network_name=bad_name):
+                network = self.valid_network()
+                network.loc[0, "ligand_A"] = bad_name
+                self.assert_inputs_rejected(
+                    network,
+                    self.valid_experimental(),
+                    "Network ligand names must be non-empty",
+                )
+
+            with self.subTest(experimental_name=bad_name):
+                experimental = self.valid_experimental()
+                experimental.loc[0, "ligand"] = bad_name
+                self.assert_inputs_rejected(
+                    self.valid_network(),
+                    experimental,
+                    "Experimental ligand names must be non-empty",
+                )
+
     def test_duplicate_experimental_ligands_are_rejected(self):
         experimental = pd.concat([self.valid_experimental(), pd.DataFrame([["A", -9.0]], columns=experimental_columns())], ignore_index=True)
         self.assert_inputs_rejected(self.valid_network(), experimental, "Experimental ligand names must be unique")
@@ -144,6 +164,21 @@ class RbfeToAbfeValidationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "one aggregated edge per unordered ligand pair"):
             self.rbfe.cycle_closure_diagnostics(network, max_cycle_length=3)
+
+    def test_repeated_unordered_pair_is_rejected_for_reconstruction(self):
+        network = self.network(
+            [
+                ["A", "B", 1.0, 0.2],
+                ["B", "A", -1.0, 0.2],
+                ["B", "C", 2.0, 0.2],
+            ]
+        )
+        experimental = self.experimental(
+            [["A", -10.0], ["B", -9.0], ["C", -7.0]]
+        )
+
+        with self.assertRaisesRegex(ValueError, "one aggregated edge per unordered ligand pair"):
+            self.rbfe.analyze(network, experimental)
 
 
 def experimental_columns():

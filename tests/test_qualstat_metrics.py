@@ -58,7 +58,7 @@ class QualStatMetricTests(unittest.TestCase):
             "regMAD",
         ):
             self.assertEqual(results[name], 0.0, name)
-        for name in ("R", "r2", "rho", "tau", "PI", "taux", "taur", "taurx", "r22", "slope2"):
+        for name in ("R", "r2", "rho", "rho2", "tau", "PI", "taux", "taur", "taurx", "r22", "slope2"):
             self.assertAlmostEqual(results[name], 1.0, msg=name)
         self.assertAlmostEqual(results["MQ"], 1.0)
         self.assertAlmostEqual(results["slope"], 1.0)
@@ -91,6 +91,34 @@ class QualStatMetricTests(unittest.TestCase):
         expected = 4.5 / math.sqrt(22.5)
         self.assertAlmostEqual(self.metric("rho", calculated, experimental), expected)
 
+    def test_rho2_is_spearman_on_origin_symmetric_data(self):
+        # Mirroring [1, 2, 4] and [1, 3, 2] about zero gives rank differences
+        # with sum(d^2)=4 for n=6, hence rho = 1 - 6*4/(6*(6^2-1)).
+        self.assertAlmostEqual(
+            self.metric("rho2", [1.0, 2.0, 4.0], [1.0, 3.0, 2.0]),
+            31.0 / 35.0,
+        )
+
+    def test_rho2_is_invariant_to_reversing_any_rbfe_edge(self):
+        calculated = [1.0, -2.5, 4.0, -0.5]
+        experimental = [1.5, -1.0, 2.0, -3.0]
+        expected = self.metric("rho2", calculated, experimental)
+
+        for mask in range(1 << len(calculated)):
+            flipped_calculated = [
+                -value if mask & (1 << index) else value
+                for index, value in enumerate(calculated)
+            ]
+            flipped_experimental = [
+                -value if mask & (1 << index) else value
+                for index, value in enumerate(experimental)
+            ]
+            self.assertAlmostEqual(
+                self.metric("rho2", flipped_calculated, flipped_experimental),
+                expected,
+                msg=f"edge-reversal mask {mask:b}",
+            )
+
     def test_tau_excludes_experimental_ties_but_counts_calculated_ties_as_discordant(self):
         self.assertAlmostEqual(
             self.metric("tau", [1.0, 2.0, 3.0], [1.0, 1.0, 3.0]),
@@ -110,9 +138,12 @@ class QualStatMetricTests(unittest.TestCase):
         )
         context = self.qs.build_metric_context(equal_cutoff, 1.0)
         self.assertEqual(context.taux_pairs, ())
-        self.assertEqual(
-            self.qs.evaluate_metric("taux", equal_cutoff.calculated, equal_cutoff.experimental, context),
-            0.0,
+        self.assertTrue(
+            math.isnan(
+                self.qs.evaluate_metric(
+                    "taux", equal_cutoff.calculated, equal_cutoff.experimental, context
+                )
+            )
         )
 
         just_above = self.dataset(
@@ -160,6 +191,9 @@ class QualStatMetricTests(unittest.TestCase):
         self.assertTrue(math.isnan(self.metric("MQ", [1.0, 2.0], [0.0, 1.0])))
         self.assertTrue(math.isnan(self.metric("R", [1.0, 1.0], [0.0, 1.0])))
         self.assertTrue(math.isnan(self.metric("r2", [1.0, 1.0], [0.0, 1.0])))
+        self.assertTrue(math.isnan(self.metric("tau", [1.0, 2.0], [1.0, 1.0])))
+        self.assertTrue(math.isnan(self.metric("taur", [1.0, 2.0], [0.0, 0.0])))
+        self.assertTrue(math.isnan(self.metric("taurx", [0.1, -0.1], [1.0, -1.0], calculated_uncertainty=[1.0, 1.0])))
 
     def test_origin_symmetric_metrics_have_independent_values(self):
         calculated = [1.0, 2.0, 4.0]

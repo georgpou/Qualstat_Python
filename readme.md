@@ -1,222 +1,163 @@
-# QualStat analysis tools
+# QualStat Python
 
-This repository contains two small command-line programs for analysing alchemical free-energy results:
+Two command-line tools for analysing alchemical binding free energies:
 
-- `scripts/qualstat.py` calculates statistical quality metrics for calculated versus experimental ABFE or RBFE data. It supports a parametric bootstrap, a collection of legacy QualStat metrics, Spearman correlation, and optional RBFE cycle-closure analysis.
-- `scripts/rbfe_to_abfe.py` uses OpenFreeEnergy Cinnabar to reconstruct one relative-energy-derived binding free energy per ligand from a connected RBFE network, aligns the calculated energies to the experimental mean, and can generate Cinnabar cycle-closure diagnostics.
+| Program | Purpose |
+|---|---|
+| `scripts/qualstat.py` | Compare calculated and experimental ABFE or RBFE values with legacy QualStat metrics, Spearman statistics, uncertainty propagation, and optional cycle closure. |
+| `scripts/rbfe_to_abfe.py` | Reconstruct one mean-aligned binding free energy per ligand from a connected RBFE network. |
 
-More detailed documentation is in:
+The project preserves the numerical definitions of the original
+[QualStat](https://signe.teokem.lu.se/ulf/Methods/qual-stat.html) program where
+compatibility matters. Legacy metrics are labelled explicitly in the detailed
+documentation.
 
-- `docs/qualstat_docs.md`
-- `docs/rbfe_to_abfe_docs.md`
+## Installation
 
-## Repository layout
+### Standard Python environment
 
-```text
-.
-├── .gitignore
-├── environment.yml
-├── readme.md
-├── docs/
-│   ├── qualstat_docs.md
-│   └── rbfe_to_abfe_docs.md
-├── examples/
-│   ├── README.md
-│   ├── qualstat_abfe/
-│   ├── qualstat_rbfe/
-│   └── rbfe_to_abfe/
-├── tests/
-│   └── ...
-└── scripts/
-    ├── qualstat.py
-    └── rbfe_to_abfe.py
+With Python 3.10 or newer, this route runs QualStat and the built-in NumPy
+network estimator:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 ```
 
-`environment.yml` is included in addition to the requested source/docs layout so that the shared Conda environment is reproducible.
+On Windows, activate with `.venv\Scripts\activate`.
 
-## Environment setup
+### Conda/Mamba environment with Cinnabar
 
-The shared environment is called `qualstat` and uses only the `conda-forge` channel.
-
-Using Mamba:
+The supplied environment also installs OpenFreeEnergy Cinnabar 0.6.1:
 
 ```bash
 mamba env create -f environment.yml
 mamba activate qualstat
 ```
 
-Using Conda:
+The equivalent Conda commands are:
 
 ```bash
 conda env create -f environment.yml
 conda activate qualstat
 ```
 
-To update an existing environment after `environment.yml` changes:
+Do not run `pip install cinnabar`; that PyPI name belongs to an unrelated
+package. The default `--backend auto` uses OpenFreeEnergy Cinnabar when it is
+available and otherwise uses the included mathematically equivalent NumPy
+weighted-least-squares implementation. Select `--backend cinnabar` or
+`--backend numpy` when a workflow must require one implementation. The terminal
+summary reports which estimator was used.
 
-```bash
-mamba env update -n qualstat -f environment.yml --prune
-```
+## Quick start
 
-or:
-
-```bash
-conda env update -n qualstat -f environment.yml --prune
-```
-
-### Why these versions are constrained
-
-The two programs have very different dependency footprints.
-
-`qualstat.py` uses the Python standard library plus PyYAML. The main Python requirement is therefore a modern Python version; Python 3.11 is used here as a conservative common version.
-
-`rbfe_to_abfe.py` directly uses NumPy and pandas and imports `FEMap` from OpenFreeEnergy Cinnabar together with `openff.units`. Cinnabar is pinned to `0.6.1` because the script relies on the FEMap API and on the names/structure of the cycle-closure dataframes used by that release. NumPy and pandas are constrained to current major-version ranges to reduce the chance that a future major release changes behaviour underneath this fixed Cinnabar version.
-
-Do not install `cinnabar` with `pip install cinnabar`. The package with that name on PyPI is not the OpenFreeEnergy Cinnabar used by this script. Install Cinnabar from `conda-forge`, as done by `environment.yml`.
-
-`openff-units` is listed explicitly even though it may also be installed as a dependency of the Cinnabar stack, because `rbfe_to_abfe.py` imports it directly. This makes the repository's direct requirements clear and prevents accidental reliance on an undeclared transitive dependency.
-
-## Quick checks after installation
-
-From the repository root:
-
-```bash
-python scripts/qualstat.py --help
-python scripts/rbfe_to_abfe.py --help
-```
-
-You can also confirm the important imports and versions:
-
-```bash
-python - <<'PY'
-import sys
-import yaml
-import numpy
-import pandas
-import cinnabar
-import openff.units
-
-print("Python:", sys.version.split()[0])
-print("PyYAML:", yaml.__version__)
-print("NumPy:", numpy.__version__)
-print("pandas:", pandas.__version__)
-print("Cinnabar:", cinnabar.__version__)
-print("openff-units: import OK")
-PY
-```
-
-## Quick use: QualStat
-
-Create a commented YAML settings template:
+Create a fully commented QualStat configuration:
 
 ```bash
 python scripts/qualstat.py --write-template
-```
-
-Then edit `qualstat_template.yaml` and run:
-
-```bash
 python scripts/qualstat.py qualstat_template.yaml
 ```
 
-The YAML selects ABFE or RBFE analysis, the input CSV, output report, bootstrap settings, requested statistics, and optional cycle analysis. Paths inside the YAML are resolved relative to the YAML file.
+Template generation will not replace an existing file. Add `--force` only when
+you intentionally want to overwrite it.
 
-For the exact CSV columns, metric definitions, bootstrap procedure, and QualStat cycle-closure behaviour, see `docs/qualstat_docs.md`.
-
-## Quick use: RBFE network reconstruction
-
-Basic reconstruction:
+Reconstruct ligand energies from an RBFE network:
 
 ```bash
 python scripts/rbfe_to_abfe.py network.csv experimental.csv \
-    -o calculated_abfe.csv
+  -o calculated_abfe.csv --cycle-closure 5
 ```
 
-With cycle-closure diagnostics for cycles containing at most five ligands:
+Paths in a QualStat YAML file are resolved relative to that YAML file.
 
-```bash
-python scripts/rbfe_to_abfe.py network.csv experimental.csv \
-    -o calculated_abfe.csv \
-    --cycle-closure 5
-```
+## Input schemas
 
-The script fits one energy per ligand using Cinnabar's maximum-likelihood network estimator, then applies one common shift so that the calculated mean matches the experimental mean. The optional cycle analysis is diagnostic; it does not alter or reject fitted ligand energies.
-
-For the required CSV schemas, sign convention, interpretation of the reconstructed energies and uncertainties, and cycle-closure outputs, see `docs/rbfe_to_abfe_docs.md`.
-
-## Examples and tests
-
-The `examples/README.md` file describes three small, reproducible workflows:
-QualStat ABFE, QualStat RBFE with cycle analysis, and Cinnabar RBFE-to-ABFE
-reconstruction. Run them from the repository root with the commands shown in
-that file.
-
-Run the complete test suite with:
-
-```bash
-python -m unittest discover -s tests -v
-```
-
-The tests check metric definitions, bootstrap reproducibility, input validation,
-CLI behavior, Cinnabar reconstruction, cycle diagnostics, output safety, and
-the committed examples. They do not prove that a molecular simulation is
-physically converged or that a force field is scientifically correct. Those
-questions still require independent replicas, sampling checks, setup review,
-and scientific interpretation.
-
-## Important: the two CSV interfaces are not identical
-
-The programs can live in the same environment, but their file formats are currently independent.
-
-`rbfe_to_abfe.py` expects an RBFE network with columns:
-
-```text
-ligand_A,ligand_B,DDG_kJ_mol,DDG_uncertainty_kJ_mol
-```
-
-and an experimental file with:
-
-```text
-ligand,DG_exp_kJ_mol
-```
-
-Its reconstructed output contains:
-
-```text
-ligand,DG_exp_kJ_mol,DG_calc_kJ_mol,DG_calc_uncertainty_kJ_mol
-```
-
-QualStat ABFE mode instead requires:
+QualStat ABFE:
 
 ```text
 ligand,calculated,calculated_uncertainty,experimental,experimental_uncertainty
 ```
 
-QualStat RBFE mode requires:
+QualStat RBFE:
 
 ```text
 ligand_a,ligand_b,calculated,calculated_uncertainty,experimental,experimental_uncertainty
 ```
 
-Therefore the Cinnabar reconstruction output cannot currently be passed directly to QualStat without a small conversion step. The key missing quantity is `experimental_uncertainty`: `rbfe_to_abfe.py` does not read or emit it, while QualStat requires it. Do not fill this column with zero unless zero genuinely represents the intended experimental standard deviation; supply the experimental uncertainty used for the statistical analysis.
+RBFE network reconstruction:
 
-## Dependency and compatibility notes
-
-The main dependency risks are:
-
-1. **Wrong Cinnabar package.** PyPI's `cinnabar` name refers to an unrelated package. Use the conda-forge package.
-2. **Cinnabar API drift.** `rbfe_to_abfe.py` expects Cinnabar's `FEMap`, `generate_absolute_values()`, `get_absolute_dataframe()`, `get_cycle_closure_dataframe()`, and `get_cycle_closure_edge_statistics_dataframe()` interfaces and specific dataframe column names. Keeping `cinnabar=0.6.1` avoids an unnoticed API change.
-3. **Future pandas/NumPy major releases.** The script itself uses ordinary NumPy/pandas operations, but Cinnabar also uses these libraries internally. The environment therefore avoids unbounded future major versions while retaining normal compatible updates within the selected ranges.
-4. **Implicit OpenFF dependency.** `openff.units` is imported directly by the script, so it is declared explicitly in `environment.yml` rather than relying only on Cinnabar to pull it in.
-5. **Different data schemas.** This is not a package conflict, but it is the main workflow incompatibility between the two programs. See the section above.
-
-## Reproducibility
-
-For a calculation used in a benchmark or publication, save the exact solved environment in addition to `environment.yml`:
-
-```bash
-conda env export -n qualstat --from-history > environment-history.yml
-conda list -n qualstat --explicit > environment-explicit.txt
+```text
+ligand_A,ligand_B,DDG_kJ_mol,DDG_uncertainty_kJ_mol
 ```
 
-`environment.yml` records the intended direct dependencies. `environment-explicit.txt` records the exact package builds used on that machine and is useful when reproducing an analysis later.
+with experimental values:
+
+```text
+ligand,DG_exp_kJ_mol
+```
+
+For both RBFE interfaces, the sign convention is
+
+```text
+DDG(A -> B) = G(B) - G(A)
+```
+
+## Uncertainty convention
+
+Every uncertainty column must contain the **one-sigma uncertainty of the value
+reported in the corresponding energy column**.
+
+If the reported energy is the mean of `n` independent repeats and `s` is their
+sample standard deviation, supply the standard error of the mean:
+
+```text
+SEM = s / sqrt(n)
+```
+
+For triplicates, this is `s / sqrt(3)`. If the value supplied by the simulation
+or assay software is already the uncertainty of the reported mean, do not
+divide it again.
+
+QualStat's reported `Propagation SD` comes from independent Gaussian
+perturbations of the existing records. It does not resample ligands or edges,
+so it is uncertainty propagation conditional on the supplied dataset—not a
+finite-dataset confidence interval.
+
+## Recommended RBFE metrics
+
+The default RBFE template enables the four metrics commonly used by this
+project:
+
+- `MAD` — mean absolute error;
+- `RMSD` — root mean square error;
+- `taurx` — legacy sign agreement after excluding values that are not
+  significant relative to their uncertainties;
+- `r22` — legacy origin-symmetric signed squared Pearson statistic.
+
+Ordinary Pearson `R`, Spearman `rho`, and legacy `tau` depend on the arbitrary
+direction assigned to individual RBFE edges. They should not be reported for
+raw RBFE edge sets.
+
+`rho2` is an optional, orientation-independent extension. It computes standard
+Spearman correlation after adding the sign-negated copy of every edge. This
+makes it invariant to reversing any individual transformation while retaining
+sign information. It is a custom project metric, not a standard named
+statistic; report its definition whenever it is used.
+
+## Documentation, examples, and tests
+
+- [QualStat usage and metric definitions](docs/qualstat_docs.md)
+- [RBFE-to-ABFE reconstruction and cycle closure](docs/rbfe_to_abfe_docs.md)
+- [Runnable dummy datasets and expected outputs](examples/README.md)
+
+Run the complete suite from the repository root:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The tests verify formulas, orientation behavior, uncertainty propagation,
+input validation, network reconstruction, cycle closure, CLI behavior, and the
+committed examples. They do not establish physical convergence of a molecular
+simulation.

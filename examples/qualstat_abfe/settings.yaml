@@ -1,4 +1,5 @@
-# ABFE example: all paths are relative to this YAML file.
+# ABFE example: all paths are relative to this YAML file. The uncertainty
+# columns contain one-sigma uncertainties of the reported ligand means.
 input_file: data.csv
 output_file: expected.log
 analysis_type: abfe

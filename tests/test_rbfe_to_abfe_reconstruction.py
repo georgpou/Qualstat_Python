@@ -8,6 +8,15 @@ import pandas as pd
 from tests.support import load_script_module
 
 
+try:
+    from cinnabar.femap import FEMap  # noqa: F401
+    from openff.units import unit  # noqa: F401
+except ImportError:
+    HAS_CINNABAR = False
+else:
+    HAS_CINNABAR = True
+
+
 class RbfeToAbfeReconstructionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -60,6 +69,21 @@ class RbfeToAbfeReconstructionTests(unittest.TestCase):
         self.assertTrue(result["DG_calc_uncertainty_kJ_mol"].map(math.isfinite).all())
         self.assertTrue((result["DG_calc_uncertainty_kJ_mol"] > 0.0).all())
 
+    def test_explicit_numpy_backend_is_reported(self):
+        result = self.rbfe.analyze(
+            self.network(), self.experimental(), backend="numpy"
+        )
+
+        self.assertEqual(result.attrs["estimator"], "NumPy weighted least squares")
+
+    @unittest.skipUnless(HAS_CINNABAR, "OpenFreeEnergy Cinnabar is not installed")
+    def test_explicit_cinnabar_backend_is_exercised_when_installed(self):
+        result = self.rbfe.analyze(
+            self.network(), self.experimental(), backend="cinnabar"
+        )
+
+        self.assertEqual(result.attrs["estimator"], "OpenFreeEnergy Cinnabar")
+
     def test_positive_a_to_b_edge_has_positive_reconstructed_difference(self):
         result = self.rbfe.analyze(self.network(), self.experimental())
         values = result.set_index("ligand")["DG_calc_kJ_mol"]
@@ -88,6 +112,41 @@ class RbfeToAbfeReconstructionTests(unittest.TestCase):
             first_difference = first_values[row.ligand_B] - first_values[row.ligand_A]
             shifted_difference = shifted_values[row.ligand_B] - shifted_values[row.ligand_A]
             self.assertAlmostEqual(first_difference, shifted_difference, places=12)
+
+    def test_reversing_edge_storage_direction_does_not_change_the_fit(self):
+        network = self.network()
+        reversed_network = network.copy()
+        rows_to_reverse = [0, 3, 5]
+        for index in rows_to_reverse:
+            ligand_a = reversed_network.loc[index, "ligand_A"]
+            reversed_network.loc[index, "ligand_A"] = reversed_network.loc[index, "ligand_B"]
+            reversed_network.loc[index, "ligand_B"] = ligand_a
+            reversed_network.loc[index, "DDG_kJ_mol"] *= -1.0
+
+        original = self.rbfe.analyze(network, self.experimental())
+        reversed_result = self.rbfe.analyze(reversed_network, self.experimental())
+
+        pd.testing.assert_frame_equal(original, reversed_result, atol=1e-12, rtol=1e-12)
+
+    def test_scaling_all_edge_uncertainties_scales_only_output_uncertainties(self):
+        network = self.network()
+        scaled_network = network.copy()
+        scaled_network["DDG_uncertainty_kJ_mol"] *= 2.0
+
+        original = self.rbfe.analyze(network, self.experimental())
+        scaled = self.rbfe.analyze(scaled_network, self.experimental())
+
+        self.assertTrue(
+            (original["DG_calc_kJ_mol"] - scaled["DG_calc_kJ_mol"])
+            .abs()
+            .lt(1e-12)
+            .all()
+        )
+        for first, second in zip(
+            original["DG_calc_uncertainty_kJ_mol"],
+            scaled["DG_calc_uncertainty_kJ_mol"],
+        ):
+            self.assertAlmostEqual(second, 2.0 * first, places=12)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 Ligands: 4
+Estimator: NumPy weighted least squares
 Mean alignment shift: -24.000000 kJ/mol
 Output: examples/rbfe_to_abfe/calculated_abfe.csv
 Cycles detected: 7

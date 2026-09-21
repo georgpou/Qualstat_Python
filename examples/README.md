@@ -25,17 +25,24 @@ otherwise unchanged. Running the commands in the checkout writes the report to
 `expected.log`, so copy the example directory first if you want to preserve the
 reference file exactly.
 
+Every uncertainty in these examples is the one-sigma uncertainty of the value
+reported on the same row. If your row is the mean of `n` independent repeats
+and you have their sample standard deviation `s`, supply `s / sqrt(n)`. For
+triplicates, this is `s / sqrt(3)`.
+
 ## QualStat ABFE
 
 `qualstat_abfe/` contains six independent ligand binding free energies with
 non-zero calculated and experimental uncertainties. It demonstrates the ABFE
-CSV schema, parametric bootstrap, and common error/correlation metrics.
+CSV schema, legacy parametric uncertainty propagation, and common
+error/correlation metrics.
 
 ## QualStat RBFE
 
 `qualstat_rbfe/` contains four ligands and five directed transformations. The
 edges form several simple cycles, so the report also shows directed cycle
-closure and root-sum-square uncertainty.
+closure and root-sum-square uncertainty. Its selected statistics are the
+project's preferred orientation-independent set: MAD, RMSD, taurx, and r22.
 
 ## Input conventions
 
@@ -54,8 +61,10 @@ deliberate closure inconsistency. The input sign convention is:
 DDG(A -> B) = G(B) - G(A)
 ```
 
-The three output CSV files contain Cinnabar's network-reconstructed values,
-their network uncertainties, and cycle diagnostics. The calculated energies are
-mean-aligned to the experimental values; they are reconstructed relative-network
-energies, not independent absolute-binding-free-energy simulations. Cycle
-closure is a diagnostic and does not change or reject the fitted values.
+The three output CSV files contain network-reconstructed values, their network
+uncertainties, and cycle diagnostics from Cinnabar or the numerically
+equivalent NumPy fallback. The terminal output states which
+estimator was used. The calculated energies are mean-aligned to the
+experimental values; they are reconstructed relative-network energies and are
+not independent absolute-binding-free-energy simulations. Cycle closure is a
+diagnostic and does not change or reject the fitted values.

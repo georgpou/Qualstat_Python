@@ -62,7 +62,7 @@ class QualStatExampleTests(unittest.TestCase):
         self.assertIn("Input:", readme)
 
     def test_project_docs_and_ci_publish_the_canonical_workflow(self):
-        readme = (REPO_ROOT / "readme.md").read_text(encoding="utf-8")
+        readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
         qualstat_docs = (REPO_ROOT / "docs" / "qualstat_docs.md").read_text(encoding="utf-8")
         rbfe_docs = (REPO_ROOT / "docs" / "rbfe_to_abfe_docs.md").read_text(encoding="utf-8")
         environment = (REPO_ROOT / "environment.yml").read_text(encoding="utf-8")

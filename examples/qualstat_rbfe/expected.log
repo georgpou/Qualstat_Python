@@ -1,21 +1,18 @@
 Python QualStat
 Analysis: RBFE
 Input: <ABSOLUTE_PATH_TO_RBFE_DATA>
+Energy unit: kJ/mol
 Records: 5
-Bootstrap rounds: 1000
+Propagation rounds: 1000
 Seed: 2026
+Uncertainty method: legacy independent Gaussian uncertainty propagation (records are not resampled)
 
-Metric          Estimate    Bootstrap SD   Valid boots
+Metric          Estimate  Propagation SD  Valid rounds
 ------------------------------------------------------
 MAD                 0.26    0.1578990554          1000
 RMSD         0.293257566    0.1866856543          1000
-MSD                 0.06    0.2352308918          1000
-r2          0.9857999629   0.03657449903          1000
-R           0.9928745957   0.01906558742          1000
-rho         0.8720815993    0.1166883721          1000
-tau                  0.6    0.1756544747          1000
-slope        1.052655511     0.112991212          1000
-inter      0.07895598399    0.2367622609          1000
+taurx                  1   0.02822758928          1000
+r22         0.9848508938   0.04026452295          1000
 
 RBFE cycle analysis
 ===================

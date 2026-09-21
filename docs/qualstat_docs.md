@@ -1,35 +1,28 @@
-# Python QualStat
+# QualStat: usage and statistical definitions
 
-This is a small Python replacement for the a QualStat Fortran program created by Ulf Ryde's group https://signe.teokem.lu.se/ulf/Methods/qual-stat.html. 
-It preserves QualStat's legacy metric definitions and parametric bootstrap, accepts CSV/YAML input, adds Spearman's rho, and can calculate RBFE cycle-closure errors.
+`scripts/qualstat.py` compares calculated and experimental ABFE or RBFE values.
+It preserves legacy QualStat definitions, adds ordinary Spearman `rho` and the
+orientation-independent extension `rho2`, propagates supplied uncertainties,
+and can inspect RBFE cycle closure.
 
-## Installation
-
-Only PyYAML is required outside the Python standard library. Either install it into an existing Python 3.10+ environment or create the supplied Conda environment:
-
-```bash
-conda env create -f environment.yml
-conda activate qualstat
-```
-
-## Commands
+## Run the program
 
 ```bash
 python scripts/qualstat.py --write-template
-python scripts/qualstat.py --write-template my_settings.yaml
-python scripts/qualstat.py my_settings.yaml
-python scripts/qualstat.py -h
-python scripts/qualstat.py -help
+python scripts/qualstat.py qualstat_template.yaml
 python scripts/qualstat.py --help
 ```
 
-The first command creates `qualstat_template.yaml`. The template contains brief comments, every supported statistic as a `true`/`false` option, 1,000 bootstrap rounds, and a `.log` output name.
+The template lists every metric. Input and output paths are relative to the
+YAML file, not the shell's current directory.
 
-Input and output paths in YAML are resolved relative to the YAML file, not the current shell directory.
+Template generation refuses to replace an existing file. To replace one
+intentionally, run `python scripts/qualstat.py --write-template --force`, or
+place `--force` after an explicit template path.
 
-## CSV input
+## Input CSV files
 
-Headers and column order are exact. Uncertainties must be non-negative standard deviations.
+Headers and their order are exact.
 
 ABFE:
 
@@ -38,6 +31,8 @@ ligand,calculated,calculated_uncertainty,experimental,experimental_uncertainty
 Lig1,-25.1,0.8,-24.3,0.4
 ```
 
+Ligand names must be unique in ABFE mode.
+
 RBFE:
 
 ```csv
@@ -45,48 +40,148 @@ ligand_a,ligand_b,calculated,calculated_uncertainty,experimental,experimental_un
 Lig1,Lig2,-3.0,0.5,-2.6,0.3
 ```
 
-An RBFE value is interpreted as the directed difference `ligand_a -> ligand_b`. Self-edges and repeated ligand pairs—even if reversed—are rejected.
+Each RBFE row is directed from `ligand_a` to `ligand_b`:
 
-## Bootstrap
+```text
+DDG(A -> B) = G(B) - G(A)
+```
 
-For every bootstrap round, the script independently draws each calculated and experimental value from a normal distribution centered on the input value with the input uncertainty as its standard deviation. It then recomputes the selected metrics. The report gives the original-data estimate, sample standard deviation of valid bootstrap values, and number of valid bootstrap rounds.
+Self-edges and repeated unordered ligand pairs are rejected. Thus `A -> B` and
+`B -> A` cannot both occur in one input file.
 
-Use an integer `random_seed` for reproducible Python results or `null` for a random seed. Python and Fortran use different random-number generators, so their individual bootstrap samples are not expected to match.
+Calculated and experimental values must use the same unit. The program prints
+the `energy_unit` label but does not convert values.
 
-## Metrics
+## What belongs in an uncertainty column?
 
-Run `python scripts/qualstat.py --help` for a concise explanation of every metric. The following legacy details matter when comparing to other software:
+Use the **one-sigma standard uncertainty of the reported energy**, not
+automatically the raw spread across repeats.
 
-- `r2` and `r22` retain the sign of Pearson correlation after squaring.
-- `Median` and `AbsMed` use the lower middle value for an even sample.
-- `tau` excludes tied experimental pairs, while a prediction tie counts as discordant.
-- `taux` and `taurx` default to the legacy 1.645 significance multiplier.
-- `PI` weights pair ordering by experimental separation; calculated ties add no numerator contribution.
-- `ROCar` reproduces the legacy 21-threshold calculation rather than a modern exact AUC routine. It treats the most frequent experimental value as the inactive class; ties use first appearance, and if every label is unique, the first label is selected deterministically.
-- `rho` is the added standard Spearman rank correlation with average ranks for ties.
+If an energy is the mean of `n` independent repeats and `s` is their sample
+standard deviation, the standard error of that mean is
 
-Mathematically undefined values are printed as `nan` without stopping other metrics. For example, a correlation is undefined when either input has zero variance.
+```text
+SEM = s / sqrt(n)
+```
+
+For three repeats, use `s / sqrt(3)`. If an upstream program already reports
+the uncertainty or standard error of the mean, use it unchanged. This is the
+same SD-versus-SEM distinction described by
+[SciPy's `sem` documentation](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.sem.html).
+
+This conversion assumes independent repeats. Correlated repeats contain less
+independent information, so `s / sqrt(n)` may then be too optimistic.
+
+## Uncertainty propagation
+
+For every requested round and every record, QualStat draws
+
+```text
+calculated*   ~ Normal(calculated, calculated_uncertainty)
+experimental* ~ Normal(experimental, experimental_uncertainty)
+```
+
+and recomputes each selected statistic. `Propagation SD` is the sample standard
+deviation across finite simulated values.
+
+This is the original QualStat-style **parametric uncertainty propagation**. It
+does not resample records and therefore does not measure the extra uncertainty
+caused by having only a finite number of ligands or transformations. The
+original program describes the same Gaussian procedure and its historical
+error-scaling factor in the
+[QualStat documentation](https://signe.teokem.lu.se/ulf/Methods/qual-stat.html).
+
+Further assumptions and details:
+
+- input errors are treated as independent;
+- correlations from shared simulations, references, or assay systematics are
+  not represented;
+- `taux` and `taurx` select eligible pairs/edges once from the original data;
+  the selection is held fixed during propagation;
+- `random_seed` gives reproducible Python samples;
+- `null` requests a non-deterministic seed.
+
+## Recommended RBFE statistics
+
+Accuracy metrics should be the main RBFE summaries. The default template uses
+`MAD`, `RMSD`, `taurx`, and `r22`, matching this project's established
+practice.
+
+| Metric class | Metrics | Orientation behavior |
+|---|---|---|
+| Recommended accuracy | `MAD`, `RMSD` | Invariant |
+| Preferred legacy RBFE | `taurx`, `r22` | Invariant |
+| Optional project extension | `rho2` | Invariant |
+| Other invariant summaries | `MQ`, `Q`, `AbsMed`, `taur`, `slope2`, `max` | Invariant |
+| Do not use on raw RBFE edges | `MADtr`, `r2`, `PI`, `MSD`, `Median`, `slope`, `inter`, `multi`, `tau`, `taux`, `regMAD`, `ROCar`, `R`, `rho` | Depends on chosen edge directions |
+
+Hahn et al. show that ordinary correlation values for an RBFE edge set can be
+changed simply by reversing edge definitions and recommend accuracy measures
+such as RMSE and MUE instead
+([Living Journal of Computational Molecular Science, 2022](https://pubmed.ncbi.nlm.nih.gov/36382113/)).
+
+### `rho2`: origin-symmetric Spearman correlation
+
+There is no widely accepted standard orientation-independent Spearman
+coefficient for RBFE edges. This repository therefore provides a clearly
+labelled custom extension:
+
+1. Start with every pair `(calculated_i, experimental_i)`.
+2. Add `(-calculated_i, -experimental_i)`.
+3. Calculate ordinary Spearman correlation on the doubled data.
+
+Reversing one stored edge only swaps its two mirrored points, leaving the
+doubled dataset—and therefore `rho2`—unchanged. Unlike Spearman correlation of
+absolute magnitudes, `rho2` retains whether the calculated and experimental
+signs agree. Because it is not a standard statistic, publications should state
+this definition explicitly rather than calling it ordinary Spearman `rho`.
+
+## Metric definitions
+
+Let `c_i` be calculated values, `e_i` experimental values, and
+`d_i = c_i - e_i`.
+
+| Name | Definition and interpretation |
+|---|---|
+| `MAD` | Mean `abs(d_i)`; often called MAE or MUE elsewhere. |
+| `RMSD` | Square root of mean `d_i^2`; often called RMSE. |
+| `MSD` | Mean signed error, mean `d_i`. |
+| `max` | Maximum `abs(d_i)`. |
+| `R` | Standard Pearson correlation. |
+| `rho` | Standard Spearman correlation using average ranks for ties. |
+| `rho2` | Spearman correlation after adding sign-negated data; custom orientation-independent extension. |
+| `r2` | Legacy signed `R * abs(R)`, not conventional non-negative `R^2`. |
+| `r22` | Legacy `r2` after adding sign-negated data. |
+| `taur` | Legacy sign-agreement score over non-zero experimental RBFEs. |
+| `taurx` | `taur` restricted to edges significant relative to both supplied uncertainties. |
+| `tau` | Legacy ordering score; experimental ties are omitted and calculated ties count as discordant. It is not Kendall tau-b. |
+| `taux` | Legacy `tau` restricted to significant pairs. |
+| `MADtr` | MAD after subtracting the mean signed error. |
+| `Median` | Lower median of signed errors for an even-sized sample. |
+| `AbsMed` | Lower median of absolute prediction errors; not median absolute deviation about a sample median. |
+| `PI` | Legacy pair-ordering index weighted by experimental separation. |
+| `MQ` | Mean calculated-to-experimental quotient. |
+| `Q` | Sum of squared errors divided by sum of squared experimental values. |
+| `slope`, `inter` | Regression of calculated values on experimental values. |
+| `multi` | Legacy slope multiplied by the mean experimental value. |
+| `slope2` | Regression slope after adding sign-negated data. |
+| `regMAD` | MAD around the regression of experimental on calculated values. |
+| `ROCar` | Compatibility-only 21-threshold legacy ROC quantity. Do not use it for continuous ABFE/RBFE energies. |
+
+`tau`, `taux`, `taur`, and `taurx` return `nan` when no eligible comparisons
+exist. Other mathematically undefined values, such as correlation with a
+constant vector, also appear as `nan` without stopping the remaining metrics.
 
 ## RBFE cycle analysis
 
-With `analysis_type: rbfe` and `cycle_analysis: true`, the script finds every unique simple cycle of length three or greater. Traversing an edge in its stored `ligand_a -> ligand_b` direction adds its calculated free energy; traversing it backward subtracts it. Independent edge uncertainties are combined by root-sum-square.
+With `analysis_type: rbfe` and `cycle_analysis: true`, the program enumerates
+unique simple cycles containing at least three ligands. Traversing a stored edge
+forward adds its value; traversing it backward subtracts it. With independent
+edge uncertainties, the cycle uncertainty is
 
 ```text
-Cycle #1
-
-Lig1 -> Lig2 -> Lig3 -> Lig1 = 0.300 +/- 0.877 kJ/mol
+sqrt(sigma_1^2 + sigma_2^2 + ...)
 ```
 
-Equivalent rotations and reversals are printed once in deterministic order. Enumerating all simple cycles can become expensive for a dense network because their number can grow exponentially.
-
-## Examples and tests
-
-```bash
-python scripts/qualstat.py examples/qualstat_abfe/settings.yaml
-python scripts/qualstat.py examples/qualstat_rbfe/settings.yaml
-python -m unittest discover -s tests -v
-```
-
-The example reports are written into `examples/` with `.log` suffixes. The
-tests validate software behavior and statistical definitions; they do not
-establish physical convergence of an underlying molecular simulation.
+Cycle enumeration can become expensive in dense networks because the number of
+simple cycles may grow exponentially.

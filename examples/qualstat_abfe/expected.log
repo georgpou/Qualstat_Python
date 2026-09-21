@@ -1,11 +1,13 @@
 Python QualStat
 Analysis: ABFE
 Input: <ABSOLUTE_PATH_TO_ABFE_DATA>
+Energy unit: kJ/mol
 Records: 6
-Bootstrap rounds: 1000
+Propagation rounds: 1000
 Seed: 2026
+Uncertainty method: legacy independent Gaussian uncertainty propagation (records are not resampled)
 
-Metric          Estimate    Bootstrap SD   Valid boots
+Metric          Estimate  Propagation SD  Valid rounds
 ------------------------------------------------------
 MAD                 0.75    0.2221454582          1000
 RMSD         0.790569415    0.2387848342          1000

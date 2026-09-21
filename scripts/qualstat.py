@@ -30,7 +30,7 @@ METRIC_DESCRIPTIONS = {
     "slope": "Regression slope with experimental values on the x axis.",
     "inter": "Intercept of the same regression used for slope.",
     "multi": "Regression slope multiplied by the mean experimental value.",
-    "AbsMed": "Median absolute deviation; lower middle value for an even sample.",
+    "AbsMed": "Median absolute prediction error; lower middle value for an even sample.",
     "tau": "Legacy Kendall tau; prediction ties count as discordant.",
     "regMAD": "MAD from a regression of experimental on calculated values.",
     "ROCar": "Legacy 21-threshold ROC area; the most frequent experimental value is the inactive class.",
@@ -42,6 +42,7 @@ METRIC_DESCRIPTIONS = {
     "max": "Maximum absolute deviation.",
     "R": "Pearson correlation coefficient.",
     "rho": "Spearman rank correlation with average ranks for ties.",
+    "rho2": "Origin-symmetric Spearman correlation after adding sign-negated data (custom RBFE metric).",
 }
 
 _CANONICAL_METRICS = {name.lower(): name for name in METRIC_DESCRIPTIONS}
@@ -74,7 +75,11 @@ analysis_type: rbfe
 # Unit label printed in the report; input values are not converted.
 energy_unit: kJ/mol
 
-# Number of parametric-bootstrap samples. The QualStat default is 1000.
+# Each CSV uncertainty is the one-sigma uncertainty of the reported value.
+# For a mean of n independent repeats estimated from their sample SD s, use
+# the standard error s / sqrt(n); for triplicates, use s / sqrt(3).
+
+# Number of legacy parametric uncertainty-propagation samples.
 bootstrap_rounds: 1000
 
 # Integer seed for reproducible results, or null for a random seed.
@@ -86,29 +91,30 @@ significance_multiplier: 1.645
 # Every supported metric is listed. Change values to true or false.
 statistics:
   MAD: true
-  MADtr: true
-  r2: true
+  MADtr: false
+  r2: false
   PI: false
   RMSD: true
-  MSD: true
+  MSD: false
   Median: false
   MQ: false
   Q: false
-  slope: true
-  inter: true
+  slope: false
+  inter: false
   multi: false
   AbsMed: false
-  tau: true
+  tau: false
   regMAD: false
   ROCar: false
   taux: false
   taur: false
-  taurx: false
-  r22: false
+  taurx: true
+  r22: true
   slope2: false
   max: false
-  R: true
-  rho: true
+  R: false
+  rho: false
+  rho2: false
 
 # RBFE only: enumerate unique simple cycles and calculate closure errors.
 cycle_analysis: true
@@ -164,9 +170,15 @@ class CycleResult:
     uncertainty: float
 
 
-def write_template(path: Path = Path("qualstat_template.yaml")) -> Path:
+def write_template(
+    path: Path = Path("qualstat_template.yaml"), *, force: bool = False
+) -> Path:
     path = Path(path)
-    path.write_text(TEMPLATE_TEXT, encoding="utf-8")
+    try:
+        with path.open("w" if force else "x", encoding="utf-8") as handle:
+            handle.write(TEMPLATE_TEXT)
+    except FileExistsError as exc:
+        raise ValueError(f"{path} already exists; use --force to overwrite it") from exc
     return path
 
 
@@ -279,6 +291,7 @@ def read_dataset(config: Config) -> Dataset:
     experimental = []
     experimental_uncertainty = []
     pairs = set()
+    abfe_ligands = set()
 
     with config.input_file.open(newline="", encoding="utf-8-sig") as handle:
         reader = csv.reader(handle)
@@ -311,6 +324,10 @@ def read_dataset(config: Config) -> Dataset:
                 pairs.add(pair)
                 ligand_b.append(second)
                 offset = 2
+            elif first in abfe_ligands:
+                raise ValueError(f"row {row_number}: duplicate ABFE ligand {first}")
+            else:
+                abfe_ligands.add(first)
             numeric_fields = expected_header[offset:]
             values = [
                 _parse_number(value.strip(), row_number, field)
@@ -437,7 +454,7 @@ def _ordering_statistic(
     pairs: Sequence[tuple[int, int]],
 ) -> float:
     if not pairs:
-        return 0.0
+        return math.nan
     score = 0.0
     for i, j in pairs:
         concordant = (
@@ -455,7 +472,7 @@ def _relative_ordering_statistic(
     indices: Sequence[int],
 ) -> float:
     if not indices:
-        return 0.0
+        return math.nan
     score = 0.0
     for index in indices:
         same_sign = (
@@ -583,13 +600,18 @@ def evaluate_metric(
         return _relative_ordering_statistic(
             calculated, experimental, context.taurx_indices
         )
-    if name in {"r22", "slope2"}:
+    if name in {"r22", "slope2", "rho2"}:
         doubled_calculated = tuple(calculated) + tuple(-value for value in calculated)
         doubled_experimental = tuple(experimental) + tuple(-value for value in experimental)
         if name == "r22":
             correlation = _pearson(doubled_calculated, doubled_experimental)
             return correlation * abs(correlation)
-        return _slope(doubled_calculated, doubled_experimental)
+        if name == "slope2":
+            return _slope(doubled_calculated, doubled_experimental)
+        return _pearson(
+            _average_ranks(doubled_calculated),
+            _average_ranks(doubled_experimental),
+        )
     if name == "max":
         return max(abs(value) for value in residuals)
     if name == "rho":
@@ -740,11 +762,14 @@ def render_report(
         "Python QualStat",
         f"Analysis: {config.analysis_type.upper()}",
         f"Input: {config.input_file}",
+        f"Energy unit: {config.energy_unit}",
         f"Records: {len(data.calculated)}",
-        f"Bootstrap rounds: {config.bootstrap_rounds}",
+        f"Propagation rounds: {config.bootstrap_rounds}",
         f"Seed: {seed}",
+        "Uncertainty method: legacy independent Gaussian uncertainty propagation "
+        "(records are not resampled)",
         "",
-        f"{'Metric':<8}{'Estimate':>16}{'Bootstrap SD':>16}{'Valid boots':>14}",
+        f"{'Metric':<8}{'Estimate':>16}{'Propagation SD':>16}{'Valid rounds':>14}",
         "-" * 54,
     ]
     for result in results:
@@ -841,6 +866,11 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="write a commented YAML template and exit",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="allow --write-template to replace an existing file",
+    )
     parser.add_argument("config", nargs="?", help="YAML configuration file")
     return parser
 
@@ -848,12 +878,14 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.force and args.write_template is None:
+        parser.error("--force requires --write-template")
     if args.config is None:
         if args.write_template is None:
             parser.error("a YAML configuration file is required")
     try:
         if args.write_template is not None:
-            path = write_template(Path(args.write_template))
+            path = write_template(Path(args.write_template), force=args.force)
             print(f"Wrote {path}")
             return 0
         run(Path(args.config))

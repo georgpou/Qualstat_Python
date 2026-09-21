@@ -66,6 +66,16 @@ class RbfeToAbfeCliTests(unittest.TestCase):
             self.assertTrue(result.select_dtypes(include="number").notna().all().all())
             self.assertIn("-10.000000", output.read_text(encoding="utf-8"))
 
+    def test_numpy_backend_can_be_selected_explicitly(self):
+        with tempfile.TemporaryDirectory() as directory:
+            completed, output = self.run_cli(
+                Path(directory), "--backend", "numpy"
+            )
+
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertIn("Estimator: NumPy weighted least squares", completed.stdout)
+            self.assertTrue(output.exists())
+
     def test_cycle_length_below_three_returns_exit_code_two(self):
         with tempfile.TemporaryDirectory() as directory:
             completed, output = self.run_cli(Path(directory), "--cycle-closure", 2)
@@ -73,6 +83,32 @@ class RbfeToAbfeCliTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 2)
         self.assertIn("--cycle-closure must be at least 3", completed.stderr)
         self.assertFalse(output.exists())
+
+    def test_output_cannot_overwrite_either_input_file(self):
+        for target in ("network", "experiment"):
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as directory:
+                directory = Path(directory)
+                network, experiment = self.write_inputs(directory)
+                original_network = network.read_bytes()
+                original_experiment = experiment.read_bytes()
+                output = network if target == "network" else experiment
+                completed = run_python(
+                    [
+                        str(REPO_ROOT / "scripts" / "rbfe_to_abfe.py"),
+                        str(network),
+                        str(experiment),
+                        "-o",
+                        str(output),
+                    ],
+                    cwd=directory,
+                )
+                self.assertEqual(completed.returncode, 2)
+                self.assertIn(
+                    "Output files must differ from both input CSV files",
+                    completed.stderr,
+                )
+                self.assertEqual(network.read_bytes(), original_network)
+                self.assertEqual(experiment.read_bytes(), original_experiment)
 
     def test_late_cycle_failure_preserves_existing_output_and_leaves_no_partial_files(self):
         with tempfile.TemporaryDirectory() as directory:

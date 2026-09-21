@@ -15,7 +15,7 @@ class QualStatCliTests(unittest.TestCase):
         metrics = (
             "MAD", "MADtr", "r2", "PI", "RMSD", "MSD", "Median", "MQ", "Q",
             "slope", "inter", "multi", "AbsMed", "tau", "regMAD", "ROCar",
-            "taux", "taur", "taurx", "r22", "slope2", "max", "R", "rho",
+            "taux", "taur", "taurx", "r22", "slope2", "max", "R", "rho", "rho2",
         )
 
         for alias in aliases:
@@ -48,11 +48,41 @@ class QualStatCliTests(unittest.TestCase):
                         {
                             "MAD", "MADtr", "r2", "PI", "RMSD", "MSD", "Median", "MQ", "Q",
                             "slope", "inter", "multi", "AbsMed", "tau", "regMAD", "ROCar",
-                            "taux", "taur", "taurx", "r22", "slope2", "max", "R", "rho",
+                            "taux", "taur", "taurx", "r22", "slope2", "max", "R", "rho", "rho2",
                         },
                     )
                     self.assertTrue(all(type(value) is bool for value in document["statistics"].values()))
                     self.assertIn("# RBFE only: enumerate unique simple cycles", expected_path.read_text(encoding="utf-8"))
+                    self.assertEqual(
+                        {
+                            name
+                            for name, enabled in document["statistics"].items()
+                            if enabled
+                        },
+                        {"MAD", "RMSD", "taurx", "r22"},
+                    )
+                    self.assertIn("s / sqrt(n)", expected_path.read_text(encoding="utf-8"))
+
+    def test_template_generation_requires_force_to_replace_an_existing_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            target = directory / "custom.yaml"
+            target.write_text("SENTINEL\n", encoding="utf-8")
+            command = [
+                str(REPO_ROOT / "scripts/qualstat.py"),
+                "--write-template",
+                str(target),
+            ]
+
+            refused = run_python(command, cwd=directory)
+            self.assertEqual(refused.returncode, 2)
+            self.assertIn("already exists", refused.stderr)
+            self.assertIn("--force", refused.stderr)
+            self.assertEqual(target.read_text(encoding="utf-8"), "SENTINEL\n")
+
+            replaced = run_python([*command, "--force"], cwd=directory)
+            self.assertEqual(replaced.returncode, 0, replaced.stderr)
+            self.assertIn("input_file: results.csv", target.read_text(encoding="utf-8"))
 
     def test_invalid_configuration_returns_exit_code_two(self):
         with tempfile.TemporaryDirectory() as directory:

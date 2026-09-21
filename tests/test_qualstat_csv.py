@@ -43,6 +43,16 @@ class QualStatCsvTests(unittest.TestCase):
         self.assertEqual(data.calculated_uncertainty, (0.0,))
         self.assertEqual(data.experimental_uncertainty, (0.0,))
 
+    def test_duplicate_abfe_ligand_names_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "duplicate ABFE ligand A"):
+                self.read(
+                    Path(directory),
+                    "ligand,calculated,calculated_uncertainty,experimental,experimental_uncertainty\n"
+                    "A,1.0,0.1,1.2,0.2\n"
+                    "A,1.1,0.1,1.3,0.2\n",
+                )
+
     def test_headers_must_match_exactly(self):
         headers = (
             "calculated,ligand,calculated_uncertainty,experimental,experimental_uncertainty",
