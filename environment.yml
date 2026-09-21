@@ -1,0 +1,17 @@
+name: qualstat
+channels:
+  - conda-forge
+dependencies:
+  # Python 3.11 is a conservative common target for both scripts and Cinnabar 0.6.1.
+  - python=3.11
+
+  # rbfe_to_abfe.py
+  # Pin Cinnabar because the script relies on its FEMap and cycle-closure dataframe APIs.
+  - cinnabar=0.6.1
+  - numpy>=1.26,<3
+  - pandas>=2.2,<3
+  # Imported directly by rbfe_to_abfe.py; keep explicit even if Cinnabar also pulls it in.
+  - openff-units>=0.3,<0.4
+
+  # qualstat.py
+  - pyyaml>=6,<7

@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local Python / Conda environments
+.venv/
+venv/
+env/
+.conda/
+
+# Packaging metadata
+*.egg-info/
+build/
+dist/
