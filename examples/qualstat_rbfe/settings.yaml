@@ -1,0 +1,23 @@
+# RBFE example: all paths are relative to this YAML file.
+input_file: data.csv
+output_file: expected.log
+analysis_type: rbfe
+energy_unit: kJ/mol
+bootstrap_rounds: 1000
+random_seed: 2026
+significance_multiplier: 1.645
+
+# Common error, agreement, correlation, and regression metrics.
+statistics:
+  MAD: true
+  RMSD: true
+  MSD: true
+  r2: true
+  R: true
+  rho: true
+  tau: true
+  slope: true
+  inter: true
+
+# Report all unique simple cycles.
+cycle_analysis: true

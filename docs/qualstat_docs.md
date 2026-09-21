@@ -8,18 +8,18 @@ Only PyYAML is required outside the Python standard library. Either install it i
 
 ```bash
 conda env create -f environment.yml
-conda activate qualstat-python
+conda activate qualstat
 ```
 
 ## Commands
 
 ```bash
-python qualstat.py --write-template
-python qualstat.py --write-template my_settings.yaml
-python qualstat.py my_settings.yaml
-python qualstat.py -h
-python qualstat.py -help
-python qualstat.py --help
+python scripts/qualstat.py --write-template
+python scripts/qualstat.py --write-template my_settings.yaml
+python scripts/qualstat.py my_settings.yaml
+python scripts/qualstat.py -h
+python scripts/qualstat.py -help
+python scripts/qualstat.py --help
 ```
 
 The first command creates `qualstat_template.yaml`. The template contains brief comments, every supported statistic as a `true`/`false` option, 1,000 bootstrap rounds, and a `.log` output name.
@@ -54,7 +54,7 @@ Use an integer `random_seed` for reproducible Python results or `null` for a ran
 
 ## Metrics
 
-Run `python qualstat.py --help` for a concise explanation of every metric. The following legacy details matter when comparing to other software:
+Run `python scripts/qualstat.py --help` for a concise explanation of every metric. The following legacy details matter when comparing to other software:
 
 - `r2` and `r22` retain the sign of Pearson correlation after squaring.
 - `Median` and `AbsMed` use the lower middle value for an even sample.
@@ -81,9 +81,11 @@ Equivalent rotations and reversals are printed once in deterministic order. Enum
 ## Examples and tests
 
 ```bash
-python qualstat.py examples/abfe_settings.yaml
-python qualstat.py examples/rbfe_settings.yaml
+python scripts/qualstat.py examples/qualstat_abfe/settings.yaml
+python scripts/qualstat.py examples/qualstat_rbfe/settings.yaml
 python -m unittest discover -s tests -v
 ```
 
-The example reports are written into `examples/` with `.log` suffixes.
+The example reports are written into `examples/` with `.log` suffixes. The
+tests validate software behavior and statistical definitions; they do not
+establish physical convergence of an underlying molecular simulation.

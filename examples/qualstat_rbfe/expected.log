@@ -1,0 +1,33 @@
+Python QualStat
+Analysis: RBFE
+Input: <ABSOLUTE_PATH_TO_RBFE_DATA>
+Records: 5
+Bootstrap rounds: 1000
+Seed: 2026
+
+Metric          Estimate    Bootstrap SD   Valid boots
+------------------------------------------------------
+MAD                 0.26    0.1578990554          1000
+RMSD         0.293257566    0.1866856543          1000
+MSD                 0.06    0.2352308918          1000
+r2          0.9857999629   0.03657449903          1000
+R           0.9928745957   0.01906558742          1000
+rho         0.8720815993    0.1166883721          1000
+tau                  0.6    0.1756544747          1000
+slope        1.052655511     0.112991212          1000
+inter      0.07895598399    0.2367622609          1000
+
+RBFE cycle analysis
+===================
+
+Cycle #1
+
+L1 -> L2 -> L3 -> L1 = 0.400 +/- 0.707 kJ/mol
+
+Cycle #2
+
+L1 -> L2 -> L4 -> L1 = 0.100 +/- 0.707 kJ/mol
+
+Cycle #3
+
+L1 -> L3 -> L2 -> L4 -> L1 = -0.300 +/- 0.906 kJ/mol

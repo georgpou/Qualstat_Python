@@ -1,0 +1,7 @@
+Ligands: 4
+Mean alignment shift: -24.000000 kJ/mol
+Output: examples/rbfe_to_abfe/calculated_abfe.csv
+Cycles detected: 7
+Largest normalized closure error: 0.331295
+Cycle output: examples/rbfe_to_abfe/calculated_abfe_cycle_closure.csv
+Cycle-edge output: examples/rbfe_to_abfe/calculated_abfe_cycle_closure_edges.csv

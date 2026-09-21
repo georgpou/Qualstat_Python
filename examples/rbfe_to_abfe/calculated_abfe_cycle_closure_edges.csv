@@ -1,0 +1,7 @@
+source,ligandA,ligandB,n_cycles,mean_cc_per_sqrt_edge_kJ_mol,max_cc_per_sqrt_edge_kJ_mol
+ATM-RBFE,A,C,4,0.107735,0.150000
+ATM-RBFE,A,D,4,0.080801,0.150000
+ATM-RBFE,B,C,4,0.080801,0.150000
+ATM-RBFE,B,D,4,0.078868,0.150000
+ATM-RBFE,C,D,4,0.055801,0.115470
+ATM-RBFE,A,B,4,0.055801,0.115470

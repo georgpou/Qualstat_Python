@@ -20,6 +20,13 @@ More detailed documentation is in:
 ├── docs/
 │   ├── qualstat_docs.md
 │   └── rbfe_to_abfe_docs.md
+├── examples/
+│   ├── README.md
+│   ├── qualstat_abfe/
+│   ├── qualstat_rbfe/
+│   └── rbfe_to_abfe/
+├── tests/
+│   └── ...
 └── scripts/
     ├── qualstat.py
     └── rbfe_to_abfe.py
@@ -136,6 +143,26 @@ python scripts/rbfe_to_abfe.py network.csv experimental.csv \
 The script fits one energy per ligand using Cinnabar's maximum-likelihood network estimator, then applies one common shift so that the calculated mean matches the experimental mean. The optional cycle analysis is diagnostic; it does not alter or reject fitted ligand energies.
 
 For the required CSV schemas, sign convention, interpretation of the reconstructed energies and uncertainties, and cycle-closure outputs, see `docs/rbfe_to_abfe_docs.md`.
+
+## Examples and tests
+
+The `examples/README.md` file describes three small, reproducible workflows:
+QualStat ABFE, QualStat RBFE with cycle analysis, and Cinnabar RBFE-to-ABFE
+reconstruction. Run them from the repository root with the commands shown in
+that file.
+
+Run the complete test suite with:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The tests check metric definitions, bootstrap reproducibility, input validation,
+CLI behavior, Cinnabar reconstruction, cycle diagnostics, output safety, and
+the committed examples. They do not prove that a molecular simulation is
+physically converged or that a force field is scientifically correct. Those
+questions still require independent replicas, sampling checks, setup review,
+and scientific interpretation.
 
 ## Important: the two CSV interfaces are not identical
 
