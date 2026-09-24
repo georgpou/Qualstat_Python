@@ -21,7 +21,11 @@ def load_script_module(filename: str, module_name: str):
         raise ImportError(f"cannot load script module from {path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
-    spec.loader.exec_module(module)
+    sys.path.insert(0, str(path.parent))
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.pop(0)
     return module
 
 

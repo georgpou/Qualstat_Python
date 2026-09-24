@@ -3,18 +3,18 @@ Analysis: ABFE
 Input: <ABSOLUTE_PATH_TO_ABFE_DATA>
 Energy unit: kJ/mol
 Records: 6
-Propagation rounds: 1000
+Bootstrap rounds: 1000
 Seed: 2026
-Uncertainty method: legacy independent Gaussian uncertainty propagation (records are not resampled)
+Uncertainty method: paired records sampled with replacement
 
-Metric          Estimate  Propagation SD  Valid rounds
+Metric          Estimate    Bootstrap SD  Valid rounds
 ------------------------------------------------------
-MAD                 0.75    0.2221454582          1000
-RMSD         0.790569415    0.2387848342          1000
-MSD                -0.25    0.2825117878          1000
-r2          0.9755443209   0.01890732095          1000
-R            0.987696472  0.009678132593          1000
-rho                    1  0.006717097969          1000
-tau                    1   0.01567322859          1000
-slope        1.000930233   0.06228325907          1000
-inter      -0.2288372093     1.515155678          1000
+MAD                 0.75    0.1041405873          1000
+RMSD         0.790569415    0.1007285808          1000
+MSD                -0.25      0.30157264          1000
+r2          0.9755443209   0.02712414156           999
+R            0.987696472   0.01403062728           999
+rho                    1               0           999
+tau                    1               0           999
+slope        1.000930233   0.09772628031           999
+inter      -0.2288372093     2.353076039           999

@@ -4,7 +4,7 @@ Two command-line tools for analysing alchemical binding free energies:
 
 | Program | Purpose |
 |---|---|
-| `scripts/qualstat.py` | Compare calculated and experimental ABFE or RBFE values with legacy QualStat metrics, Spearman statistics, uncertainty propagation, and optional cycle closure. |
+| `scripts/qualstat.py` | Compare calculated and experimental ABFE or RBFE values with legacy QualStat metrics, Spearman statistics, replacement bootstrap, and optional cycle closure. |
 | `scripts/rbfe_to_abfe.py` | Reconstruct one mean-aligned binding free energy per ligand from a connected RBFE network. |
 
 The project preserves the numerical definitions of the original
@@ -119,10 +119,15 @@ For triplicates, this is `s / sqrt(3)`. If the value supplied by the simulation
 or assay software is already the uncertainty of the reported mean, do not
 divide it again.
 
-QualStat's reported `Propagation SD` comes from independent Gaussian
-perturbations of the existing records. It does not resample ligands or edges,
-so it is uncertainty propagation conditional on the supplied dataset—not a
-finite-dataset confidence interval.
+QualStat samples complete CSV rows with replacement in each bootstrap round.
+Calculated and experimental values from the same row stay paired. `Bootstrap SD`
+is the sample standard deviation of the metric across valid rounds. The
+uncertainty columns are used by metrics such as `taux` and `taurx` and by RBFE
+cycle analysis; the bootstrap does not draw Gaussian noise from them.
+
+`scripts/qualstat.py` handles configuration, input, resampling, and reports.
+`scripts/qualstat_metrics.py` defines each metric in its own small function.
+Run the entry point with `python scripts/qualstat.py <settings.yaml>`.
 
 ## Recommended RBFE metrics
 
@@ -157,7 +162,7 @@ Run the complete suite from the repository root:
 python -m unittest discover -s tests -v
 ```
 
-The tests verify formulas, orientation behavior, uncertainty propagation,
+The tests verify formulas, orientation behavior, replacement sampling,
 input validation, network reconstruction, cycle closure, CLI behavior, and the
 committed examples. They do not establish physical convergence of a molecular
 simulation.

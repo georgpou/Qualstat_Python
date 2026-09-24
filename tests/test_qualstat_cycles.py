@@ -105,7 +105,7 @@ class QualStatCycleTests(unittest.TestCase):
 
         self.assertIn("Note: cycle_analysis ignored for ABFE data.", report)
 
-    def test_report_labels_energy_units_and_parametric_propagation(self):
+    def test_report_labels_energy_units_and_replacement_bootstrap(self):
         data = self.rbfe_data(
             ["A"],
             ["B"],
@@ -120,8 +120,9 @@ class QualStatCycleTests(unittest.TestCase):
         )
 
         self.assertIn("Energy unit: kJ/mol", report)
-        self.assertIn("Propagation SD", report)
-        self.assertIn("independent Gaussian uncertainty propagation", report)
+        self.assertIn("Bootstrap rounds: 10", report)
+        self.assertIn("Bootstrap SD", report)
+        self.assertIn("records sampled with replacement", report)
 
 
 if __name__ == "__main__":

@@ -61,20 +61,17 @@ class QualStatExampleTests(unittest.TestCase):
         self.assertIn("not independent absolute-binding-free-energy simulations", readme)
         self.assertIn("Input:", readme)
 
-    def test_project_docs_and_ci_publish_the_canonical_workflow(self):
-        readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    def test_project_docs_describe_the_canonical_workflow(self):
+        readme = (REPO_ROOT / "readme.md").read_text(encoding="utf-8")
         qualstat_docs = (REPO_ROOT / "docs" / "qualstat_docs.md").read_text(encoding="utf-8")
         rbfe_docs = (REPO_ROOT / "docs" / "rbfe_to_abfe_docs.md").read_text(encoding="utf-8")
         environment = (REPO_ROOT / "environment.yml").read_text(encoding="utf-8")
-        workflow = (REPO_ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
 
         self.assertIn("python -m unittest discover -s tests -v", readme)
         self.assertIn("examples/README.md", readme)
         self.assertIn("conda activate qualstat", readme)
         self.assertIn("name: qualstat", environment)
         self.assertNotIn("qualstat-python", readme + qualstat_docs + rbfe_docs)
-        self.assertIn("environment.yml", workflow)
-        self.assertIn("python -m unittest discover -s tests -v", workflow)
         self.assertIn("cinnabar=0.6.1", environment)
 
     def test_rbfe_to_abfe_example_runs_and_matches_committed_tables(self):

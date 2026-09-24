@@ -34,8 +34,7 @@ triplicates, this is `s / sqrt(3)`.
 
 `qualstat_abfe/` contains six independent ligand binding free energies with
 non-zero calculated and experimental uncertainties. It demonstrates the ABFE
-CSV schema, legacy parametric uncertainty propagation, and common
-error/correlation metrics.
+CSV schema, replacement bootstrap, and common error/correlation metrics.
 
 ## QualStat RBFE
 

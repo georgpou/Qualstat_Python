@@ -3,16 +3,16 @@ Analysis: RBFE
 Input: <ABSOLUTE_PATH_TO_RBFE_DATA>
 Energy unit: kJ/mol
 Records: 5
-Propagation rounds: 1000
+Bootstrap rounds: 1000
 Seed: 2026
-Uncertainty method: legacy independent Gaussian uncertainty propagation (records are not resampled)
+Uncertainty method: paired records sampled with replacement
 
-Metric          Estimate  Propagation SD  Valid rounds
+Metric          Estimate    Bootstrap SD  Valid rounds
 ------------------------------------------------------
-MAD                 0.26    0.1578990554          1000
-RMSD         0.293257566    0.1866856543          1000
-taurx                  1   0.02822758928          1000
-r22         0.9848508938   0.04026452295          1000
+MAD                 0.26   0.06138266393          1000
+RMSD         0.293257566   0.06587542583          1000
+taurx                  1               0          1000
+r22         0.9848508938   0.01220657904          1000
 
 RBFE cycle analysis
 ===================

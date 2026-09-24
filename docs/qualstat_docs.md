@@ -2,8 +2,8 @@
 
 `scripts/qualstat.py` compares calculated and experimental ABFE or RBFE values.
 It preserves legacy QualStat definitions, adds ordinary Spearman `rho` and the
-orientation-independent extension `rho2`, propagates supplied uncertainties,
-and can inspect RBFE cycle closure.
+orientation-independent extension `rho2`, bootstraps complete records, and can
+inspect RBFE cycle closure.
 
 ## Run the program
 
@@ -72,34 +72,24 @@ same SD-versus-SEM distinction described by
 This conversion assumes independent repeats. Correlated repeats contain less
 independent information, so `s / sqrt(n)` may then be too optimistic.
 
-## Uncertainty propagation
+## Bootstrap sampling
 
-For every requested round and every record, QualStat draws
+For each of `bootstrap_rounds` rounds, QualStat draws as many CSV rows as the
+input contains, **with replacement**. A row may appear more than once or not at
+all. The calculated value, experimental value, uncertainties, and ligand names
+remain together. For example, three rows might yield indices `(2, 2, 0)` in
+one round.
 
-```text
-calculated*   ~ Normal(calculated, calculated_uncertainty)
-experimental* ~ Normal(experimental, experimental_uncertainty)
-```
+QualStat rebuilds pair and significance selections for that round and then
+calculates each metric. The `Estimate` column uses the original rows.
+`Bootstrap SD` is the sample standard deviation across finite round values;
+`Valid rounds` counts rounds where that metric was defined. If fewer than two
+rounds have finite values, the SD is `nan`.
 
-and recomputes each selected statistic. `Propagation SD` is the sample standard
-deviation across finite simulated values.
-
-This is the original QualStat-style **parametric uncertainty propagation**. It
-does not resample records and therefore does not measure the extra uncertainty
-caused by having only a finite number of ligands or transformations. The
-original program describes the same Gaussian procedure and its historical
-error-scaling factor in the
-[QualStat documentation](https://signe.teokem.lu.se/ulf/Methods/qual-stat.html).
-
-Further assumptions and details:
-
-- input errors are treated as independent;
-- correlations from shared simulations, references, or assay systematics are
-  not represented;
-- `taux` and `taurx` select eligible pairs/edges once from the original data;
-  the selection is held fixed during propagation;
-- `random_seed` gives reproducible Python samples;
-- `null` requests a non-deterministic seed.
+This bootstrap does not perturb values according to their uncertainty columns.
+Those columns still determine significant pairs and values for `taux` and
+`taurx`, and contribute to RBFE cycle uncertainties. `random_seed` reproduces
+the same samples; set it to `null` for a random seed.
 
 ## Recommended RBFE statistics
 
