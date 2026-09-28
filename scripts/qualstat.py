@@ -9,7 +9,7 @@ import math
 import random
 import statistics
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Sequence
 
@@ -58,8 +58,10 @@ energy_unit: kJ/mol
 # For a mean of n independent repeats estimated from their sample SD s, use
 # the standard error s / sqrt(n); for triplicates, use s / sqrt(3).
 
-# Number of rounds; each round samples complete CSV records with replacement.
+# Number of rounds and sampling method: replacement or parametric.
+# Parametric draws both energies from their CSV one-sigma uncertainties.
 bootstrap_rounds: 1000
+bootstrap_method: replacement
 
 # Integer seed for reproducible results, or null for a random seed.
 random_seed: 2026
@@ -111,6 +113,7 @@ class Config:
     significance_multiplier: float
     statistics: tuple[str, ...]
     cycle_analysis: bool
+    bootstrap_method: str = "replacement"
 
 
 @dataclass(frozen=True)
@@ -164,6 +167,9 @@ def load_config(path: Path) -> Config:
     rounds = _required(document, "bootstrap_rounds")
     if type(rounds) is not int or rounds < 2:
         raise ValueError("bootstrap_rounds must be an integer of at least 2")
+    bootstrap_method = document.get("bootstrap_method", "replacement")
+    if bootstrap_method not in ("replacement", "parametric") or type(bootstrap_method) is not str:
+        raise ValueError("bootstrap_method must be 'replacement' or 'parametric'")
 
     raw_statistics = _required(document, "statistics")
     if not isinstance(raw_statistics, dict):
@@ -216,6 +222,7 @@ def load_config(path: Path) -> Config:
         significance_multiplier=float(multiplier),
         statistics=tuple(selected),
         cycle_analysis=cycle_analysis,
+        bootstrap_method=bootstrap_method,
     )
 
 
@@ -324,14 +331,32 @@ def _resample_rows(data: Dataset, indices: Sequence[int]) -> Dataset:
     )
 
 
+def _draw_parametric(data: Dataset, rng: random.Random) -> Dataset:
+    """Draw each energy independently from its reported normal uncertainty."""
+    return replace(
+        data,
+        calculated=tuple(
+            rng.gauss(mean, sigma)
+            for mean, sigma in zip(data.calculated, data.calculated_uncertainty)
+        ),
+        experimental=tuple(
+            rng.gauss(mean, sigma)
+            for mean, sigma in zip(data.experimental, data.experimental_uncertainty)
+        ),
+    )
+
+
 def run_statistics(
     data: Dataset,
     metric_names: Sequence[str],
     rounds: int,
     seed: int | None,
     multiplier: float,
+    method: str = "replacement",
 ) -> tuple[MetricResult, ...]:
-    """Estimate metrics and their spread across replacement samples."""
+    """Estimate metrics and their spread across the selected bootstrap draws."""
+    if method not in ("replacement", "parametric"):
+        raise ValueError("method must be 'replacement' or 'parametric'")
     context = build_metric_context(data, multiplier)
     estimates = {
         name: evaluate_metric(name, data.calculated, data.experimental, context)
@@ -341,9 +366,13 @@ def run_statistics(
     rng = random.Random(seed)
     n_records = len(data.calculated)
     for _ in range(rounds):
-        indices = rng.choices(range(n_records), k=n_records)
-        sampled = _resample_rows(data, indices)
-        sampled_context = build_metric_context(sampled, multiplier)
+        if method == "replacement":
+            indices = rng.choices(range(n_records), k=n_records)
+            sampled = _resample_rows(data, indices)
+            sampled_context = build_metric_context(sampled, multiplier)
+        else:
+            sampled = _draw_parametric(data, rng)
+            sampled_context = context  # Fortran init() fixes pair selections before the draws.
         for name in metric_names:
             value = evaluate_metric(
                 name, sampled.calculated, sampled.experimental, sampled_context
@@ -466,7 +495,11 @@ def render_report(
         f"Records: {len(data.calculated)}",
         f"Bootstrap rounds: {config.bootstrap_rounds}",
         f"Seed: {seed}",
-        "Uncertainty method: paired records sampled with replacement",
+        (
+            "Uncertainty method: paired records sampled with replacement"
+            if config.bootstrap_method == "replacement"
+            else "Uncertainty method: independent Gaussian draws per record"
+        ),
         "",
         f"{'Metric':<8}{'Estimate':>16}{'Bootstrap SD':>16}{'Valid rounds':>14}",
         "-" * 54,
@@ -521,6 +554,7 @@ def run(config_path: Path) -> str:
         rounds=config.bootstrap_rounds,
         seed=config.random_seed,
         multiplier=config.significance_multiplier,
+        method=config.bootstrap_method,
     )
     cycles = (
         find_cycles(data)
