@@ -41,6 +41,7 @@ class QualStatCliTests(unittest.TestCase):
                     self.assertTrue(expected_path.exists())
                     document = yaml.safe_load(expected_path.read_text(encoding="utf-8"))
                     self.assertEqual(document["bootstrap_rounds"], 1000)
+                    self.assertEqual(document["bootstrap_method"], "replacement")
                     self.assertTrue(document["output_file"].endswith(".log"))
                     self.assertTrue(document["cycle_analysis"])
                     self.assertEqual(
@@ -95,6 +96,34 @@ class QualStatCliTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 2)
         self.assertIn("Error:", completed.stderr)
         self.assertIn("missing required YAML setting", completed.stderr)
+
+    def test_parametric_yaml_runs_and_reports_selected_sampling_method(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            (directory / "data.csv").write_text(
+                "ligand,calculated,calculated_uncertainty,experimental,experimental_uncertainty\n"
+                "A,2.0,0.7,1.0,0.4\n",
+                encoding="utf-8",
+            )
+            settings = directory / "settings.yaml"
+            settings.write_text(yaml.safe_dump({
+                "input_file": "data.csv",
+                "output_file": "report.log",
+                "analysis_type": "abfe",
+                "bootstrap_rounds": 100,
+                "bootstrap_method": "parametric",
+                "random_seed": 123,
+                "statistics": {"MSD": True},
+            }), encoding="utf-8")
+
+            completed = run_python(["scripts/qualstat.py", str(settings)])
+            report = (directory / "report.log").read_text(encoding="utf-8")
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(completed.stdout, report)
+        self.assertIn("Uncertainty method: independent Gaussian draws per record", report)
+        metric_line = next(line for line in report.splitlines() if line.startswith("MSD "))
+        self.assertGreater(float(metric_line.split()[2]), 0.0)
 
 
 if __name__ == "__main__":

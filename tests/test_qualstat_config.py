@@ -133,6 +133,22 @@ class QualStatConfigTests(unittest.TestCase):
         self.assertEqual(config.output_file, settings_directory / "report.log")
         self.assertEqual(config.statistics, ("MAD",))
         self.assertEqual(config.analysis_type, "abfe")
+        self.assertEqual(config.bootstrap_method, "replacement")
+
+    def test_bootstrap_method_accepts_only_named_choices(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            document = self.base_document()
+            document["bootstrap_method"] = "parametric"
+            self.assertEqual(
+                self.qs.load_config(self.write_config(directory, document)).bootstrap_method,
+                "parametric",
+            )
+            for invalid in ("unknown", 1, None):
+                with self.subTest(invalid=invalid):
+                    document["bootstrap_method"] = invalid
+                    with self.assertRaisesRegex(ValueError, "bootstrap_method must be"):
+                        self.qs.load_config(self.write_config(directory, document))
 
 
 if __name__ == "__main__":

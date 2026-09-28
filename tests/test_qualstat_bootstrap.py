@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import unittest
 
 from tests.support import load_script_module
@@ -100,6 +101,48 @@ class QualStatBootstrapTests(unittest.TestCase):
                 for left, right in zip(first, different)
             )
         )
+
+    def test_parametric_zero_uncertainties_keep_all_rows_and_give_zero_spread(self):
+        data = self.dataset([0.0] * 3, [0.0] * 3)
+        result, = self.qs.run_statistics(
+            data, ("MAD",), 100, 123, 1.645, method="parametric"
+        )
+
+        self.assertAlmostEqual(result.estimate, 0.1333333333333334)
+        self.assertEqual(result.valid_bootstraps, 100)
+        self.assertEqual(result.bootstrap_sd, 0.0)
+
+    def test_parametric_spread_uses_both_uncertainties_and_seed(self):
+        data = self.qs.Dataset(
+            ligand_a=("A",), ligand_b=None,
+            calculated=(2.0,), calculated_uncertainty=(0.7,),
+            experimental=(1.0,), experimental_uncertainty=(0.4,),
+        )
+        first, = self.qs.run_statistics(
+            data, ("MSD",), 4000, 123, 1.645, method="parametric"
+        )
+        repeated, = self.qs.run_statistics(
+            data, ("MSD",), 4000, 123, 1.645, method="parametric"
+        )
+
+        self.assertEqual(first, repeated)
+        self.assertEqual(first.estimate, 1.0)
+        self.assertEqual(first.valid_bootstraps, 4000)
+        self.assertAlmostEqual(first.bootstrap_sd, math.hypot(0.7, 0.4), delta=0.04)
+
+    def test_parametric_significance_selection_stays_at_original_values(self):
+        data = self.qs.Dataset(
+            ligand_a=("A",), ligand_b=None,
+            calculated=(0.0,), calculated_uncertainty=(1.0,),
+            experimental=(1.0,), experimental_uncertainty=(0.0,),
+        )
+        result, = self.qs.run_statistics(
+            data, ("taurx",), 200, 7, 1.645, method="parametric"
+        )
+
+        self.assertTrue(math.isnan(result.estimate))
+        self.assertEqual(result.valid_bootstraps, 0)
+        self.assertTrue(math.isnan(result.bootstrap_sd))
 
 
 if __name__ == "__main__":

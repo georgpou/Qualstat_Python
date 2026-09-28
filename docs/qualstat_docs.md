@@ -2,7 +2,7 @@
 
 `scripts/qualstat.py` compares calculated and experimental ABFE or RBFE values.
 It preserves legacy QualStat definitions, adds ordinary Spearman `rho` and the
-orientation-independent extension `rho2`, bootstraps complete records, and can
+orientation-independent extension `rho2`, supports two bootstrap methods, and can
 inspect RBFE cycle closure.
 
 ## Run the program
@@ -74,22 +74,33 @@ independent information, so `s / sqrt(n)` may then be too optimistic.
 
 ## Bootstrap sampling
 
-For each of `bootstrap_rounds` rounds, QualStat draws as many CSV rows as the
-input contains, **with replacement**. A row may appear more than once or not at
-all. The calculated value, experimental value, uncertainties, and ligand names
-remain together. For example, three rows might yield indices `(2, 2, 0)` in
-one round.
+Choose `bootstrap_method: replacement` (the default) or
+`bootstrap_method: parametric` in the YAML file. Both use `bootstrap_rounds`
+rounds and report the method in the output log.
 
-QualStat rebuilds pair and significance selections for that round and then
-calculates each metric. The `Estimate` column uses the original rows.
+- **Replacement:** Draw as many complete CSV rows as the input contains, with
+  replacement. For example, three rows might yield `(2, 2, 0)`. Names, values,
+  and uncertainties remain paired. Rebuild metric pair/significance selections
+  for each sample.
+- **Parametric (original Fortran method):** Keep each row exactly once. For each
+  row, independently draw calculated and experimental energies from
+  `Normal(reported energy, reported uncertainty)` using the CSV uncertainties
+  as one-sigma standard deviations. Zero uncertainty leaves that energy fixed.
+  Metric pair/significance selections are determined from the original values
+  and held fixed over the draws, as in the Fortran `init()` routine. Zero
+  experimental uncertainty freezes those draws, but significance selections
+  still use the experimental values (including ties and zeros).
+
+The `Estimate` column uses the original rows under either method.
 `Bootstrap SD` is the sample standard deviation across finite round values;
 `Valid rounds` counts rounds where that metric was defined. If fewer than two
 rounds have finite values, the SD is `nan`.
 
-This bootstrap does not perturb values according to their uncertainty columns.
-Those columns still determine significant pairs and values for `taux` and
-`taurx`, and contribute to RBFE cycle uncertainties. `random_seed` reproduces
-the same samples; set it to `null` for a random seed.
+With replacement, uncertainty columns do not perturb energies; they still
+determine significant pairs for `taux` and `taurx` and contribute to RBFE cycle
+uncertainties. With either method, cycle closure uses the original input values
+and uncertainties. `random_seed` reproduces the same draws; set it to `null`
+for a random seed.
 
 ## Recommended RBFE statistics
 

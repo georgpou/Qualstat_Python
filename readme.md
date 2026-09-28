@@ -4,7 +4,7 @@ Two command-line tools for analysing alchemical binding free energies:
 
 | Program | Purpose |
 |---|---|
-| `scripts/qualstat.py` | Compare calculated and experimental ABFE or RBFE values with legacy QualStat metrics, Spearman statistics, replacement bootstrap, and optional cycle closure. |
+| `scripts/qualstat.py` | Compare calculated and experimental ABFE or RBFE values with legacy QualStat metrics, Spearman statistics, selectable bootstrap sampling, and optional cycle closure. |
 | `scripts/rbfe_to_abfe.py` | Reconstruct one mean-aligned binding free energy per ligand from a connected RBFE network. |
 
 The project preserves the numerical definitions of the original
@@ -119,11 +119,14 @@ For triplicates, this is `s / sqrt(3)`. If the value supplied by the simulation
 or assay software is already the uncertainty of the reported mean, do not
 divide it again.
 
-QualStat samples complete CSV rows with replacement in each bootstrap round.
-Calculated and experimental values from the same row stay paired. `Bootstrap SD`
-is the sample standard deviation of the metric across valid rounds. The
-uncertainty columns are used by metrics such as `taux` and `taurx` and by RBFE
-cycle analysis; the bootstrap does not draw Gaussian noise from them.
+Set `bootstrap_method: replacement` (the default) to sample complete paired
+CSV rows with replacement, or `bootstrap_method: parametric` to keep every row
+and draw independent calculated and experimental values from normal
+distributions centered on their reported energies, using their respective
+uncertainties as standard deviations. A zero uncertainty leaves that value
+fixed. `Bootstrap SD` is the sample standard deviation of the metric across
+valid rounds. See [QualStat documentation](docs/qualstat_docs.md#bootstrap-sampling)
+for the sampling details.
 
 `scripts/qualstat.py` handles configuration, input, resampling, and reports.
 `scripts/qualstat_metrics.py` defines each metric in its own small function.
